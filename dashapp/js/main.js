@@ -19,7 +19,7 @@ function Dashforms(app){
     model : Field
   });
 
-  emptyField = new Fields();
+  emptyFields = new Fields();
 
   FieldSet = Backbone.Model.extend({
     defaults : {
@@ -109,4 +109,7 @@ function Dashforms(app){
       this.render();
     }
   });
+
+  debugger;
+  fv = new FormView();
 }

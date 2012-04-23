@@ -1,0 +1,8 @@
+<label class="control-label" for="<%= name %>"><%= label || name %></label>
+<div class="controls">
+  <select multiple="multiple" name="<%= name %>">
+    <% _.each(options, function(option){ %>
+      <option value="<%= option.value %>"><%= option.label %></option>
+    <% }); %>
+  </select>
+</div>

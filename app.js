@@ -30,7 +30,8 @@
   loadFileOptions = {ignore: ignore}
 
   // To load a subdirectory: views : couchapp.loadFiles('./views', loadFileOptions)
-  ddoc = { _id : '_design/DashForms'
+  ddoc = { _id : '_design/Dashforms'
+    ,run : "/dashforms.js"
     ,views : null
     ,evently : null
     ,lists : null

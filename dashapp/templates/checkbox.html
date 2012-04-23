@@ -1,0 +1,9 @@
+<label class="control-label" for="<%= name %>"><%= label || name %></label>
+<div class="controls">
+  <% _.each(options, function(option){ %>
+    <label class="checkbox">
+      <input type="checkbox" name="<%= name %>" value="<%= option.value %>">
+      <%= option.label %>
+    </label>
+  <% }); %>
+</div>

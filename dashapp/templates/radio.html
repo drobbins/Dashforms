@@ -1,0 +1,9 @@
+<label class="control-label" for="<%= name %>"><%= label || name %></label>
+<div class="controls">
+  <% _.each(options, function(option){ %>
+    <label class="radio">
+      <input type="radio" name="<%= name %>" value="<%= option.value %>">
+      <%= option.label %>
+    </label>
+  <% }); %>
+</div>
