@@ -1,0 +1,69 @@
+<div class="modal-header">
+  <a class="close" data-dismiss="modal">×</a>
+  <h3>Editing <%= name %></h3>
+</div>
+<div class="modal-body">
+
+  <form class="form-horizontal">
+
+    <fieldset class="required">
+      <legend>Required Properties</legend>
+
+      <div class="control-group">
+        <label class="control-label" for="name">Name</label>
+        <div class="controls">
+          <input type="text" class="input" name="name" value="<%= name %>">
+          <p class="help-block">Name of the form element. Should be lowercase with no spaces.</p>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="label">Label</label>
+        <div class="controls">
+          <input type="text" class="input" name="label" value="<%= label %>">
+          <p class="help-block">The label displayed to users. A "human readable" version of the name.</p>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="type">Type</label>
+        <div class="controls">
+          <select name="type">
+            <% _.each( ['text', 'checkbox', 'radio', 'select', 'multiple', 'textarea'], function (currentType) { %>
+            <option value="<%= currentType %>" <%= (type === currentType) ? 'selected' : '' %>><%= currentType %></option>
+            <% }); %>
+          </select>
+        </div>
+      </div>
+
+    </fieldset>
+
+    <% if ( _.any(['checkbox', 'radio', 'select', 'multiple'], function (currentType) {return type === currentType;})) { %>
+      <fieldset class="options">
+        <legend>Options</legend>
+        <table>
+          <thead>
+            <tr><th>Value</th><th>Label</th></tr>
+          </thead>
+          <tbody>
+            <% _.each(options.toJSON(), function (option) { %>
+            <tr>
+              <td><input type="text" name="optValue" value="<%= option.value %>"></td>
+              <td><input type="text" name="optLabel" value="<%= option.label %>"></td>
+              <td>
+                <button class="btn btn-mini btn-success add-opt"><i class="icon-plus"></i></button>
+                <button class="btn btn-mini btn-danger remove-opt"><i class="icon-minus"></i></button>
+              </td>
+            </tr>
+            <% }); %>
+          <tbody>
+        </table>
+      </fieldset>
+    <% } %>
+
+  </form>
+
+</div>
+<div class="modal-footer">
+  <a href="#" class="btn btn-primary" data-dismiss="modal">Done</a>
+</div>

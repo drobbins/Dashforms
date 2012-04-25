@@ -1,7 +1,7 @@
 <label class="control-label" for="<%= name %>"><%= label || name %></label>
 <div class="controls">
   <select multiple="multiple" name="<%= name %>">
-    <% _.each(options, function(option){ %>
+    <% _.each(options.toJSON(), function(option){ %>
       <option value="<%= option.value %>"><%= option.label %></option>
     <% }); %>
   </select>
