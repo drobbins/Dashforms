@@ -4,16 +4,15 @@
       app = global.Dashcouch.Apps.Dashforms.app;
 
   var ddoc = app.get("doc"),
-      mainHTML = ddoc.dashapp.templates.main,
       templates = ddoc.dashapp.templates;
 
-  $(".content").html(mainHTML);
+  $(".content").html(templates.main);
 
-  var Field, Fields, FieldView, FieldsView, emptyFields,
-      FieldSet, FieldSets, FieldSetView, FieldSetsView, emptyFieldSets,
+  var Field, Fields, FieldView, FieldsView,
+      FieldSet, FieldSets, FieldSetView, FieldSetsView,
       Form, FormView,
       EditFieldView,
-      Option, Options, emptyOptions;
+      Option, Options, OptionView, OptionsView, emptyOptions;
 
   Dashforms.Option = Option = Backbone.Model.extend({
     defaults : {
@@ -24,6 +23,67 @@
 
   Dashforms.Options = Options = Backbone.Collection.extend({
     model : Option
+  });
+
+  Dashforms.OptionView = OptionView = Backbone.View.extend({
+    tagName : 'tr',
+    events : {
+      "click button.remove-opt" : "remove",
+      "change input" : "update"
+    },
+    initialize : function () {
+      _.bindAll(this, 'render', 'remove', 'update');
+      this.model.bind("change", this.render);
+    },
+    remove : function () {
+      this.$el.empty();
+      this.model.destroy();
+    },
+    render : function () {
+      var template = _.template(templates.editoption);
+      this.$el.html(template(this.model.toJSON()));
+      return this;
+    },
+    update : function () {
+      var value, label;
+      label = $("input[name='opt-label']", this.$el).val();
+      value = $("input[name='opt-value']", this.$el).val();
+      this.model.set({label : label, value : value});
+    }
+  });
+
+  Dashforms.OptionsView = OptionsView = Backbone.View.extend({
+    tagName : 'fieldset',
+    events : {
+      "click button.add-opt" : "add"
+    },
+    initialize : function () {
+      _.bindAll(this, 'render', 'renderOptions', 'add');
+      this.collection.bind('add', this.render);
+      this.optionViews = [];
+    },
+    add : function () {
+      this.collection.add(new Option());
+    },
+    render : function () {
+      this.$el.empty();
+      this.$el.html(templates.editoptions);
+      this.renderOptions();
+      return this;
+    },
+    renderOptions : function () {
+      var $el = this.$el;
+      this.collection.each(function (option){
+        var optionView;
+        optionView = _.find(this.optionViews, function (optionView) {
+          return optionView.model === option;
+        });
+        if (!optionView) {
+          optionView = new OptionView({model:option});
+        }
+        $('tbody.options', $el).append(optionView.render().el);
+      });
+    }
   });
 
   Dashforms.emptyOptions = emptyOptions = new Options();
@@ -43,19 +103,24 @@
     model : Field
   });
 
-  Dashforms.emptyFields = emptyFields = new Fields();
-
   Dashforms.FieldView = FieldView = Backbone.View.extend({
     tagName : "div",
 
     className : "control-group",
 
+    events : {
+      "click button.edit-field" : "edit",
+      "click button.add-field" : "add",
+      "click button.remove-field" : "remove"
+    },
+
     initialize : function () {
       _.bindAll(this, "render", "unrender", "renderEdit", "edit",
         "remove", "add", "reRender");
       this.model.bind("change", this.reRender);
-      this.bind("start-edit", function(){ this.editing = true; this.render() }, this);
-      this.bind("end-edit", function(){ this.editing = false; this.render() }, this);
+      this.model.get("options").bind("add remove change", this.reRender);
+      this.bind("start-edit", function(){ this.editing = true; this.render(); }, this);
+      this.bind("end-edit", function(){ this.editing = false; this.render(); }, this);
     },
 
     edit : function () {
@@ -78,11 +143,7 @@
     renderEdit : function () {
       var template = _.template(templates.editbuttons);
       this.$el.prepend(template({ field : this.model.toJSON()}));
-      this.delegateEvents({
-        "click button.edit-field" : "edit",
-        "click button.add-field" : "add",
-        "click button.remove-field" : "remove"
-      });
+      this.delegateEvents(this.events);
       return this;
     },
 
@@ -91,7 +152,8 @@
     },
 
     add : function () {
-      this.model.collection.add({ name : "NewField"}, { at : this.model.collection.indexOf(this.model)+1 });
+      var fields = this.model.collection;
+      fields.add({ name : "NewField"}, { at : fields.indexOf(this.model)+1 });
     },
 
     remove : function () {
@@ -100,46 +162,12 @@
     }
   });
 
-  // Not in use currently
-  Dashforms.FieldsView = FieldsView = Backbone.View.extend({
-    events : {
-      "toggleEdit" : "toggleEdit"
-    },
-    initialize : function () {
-      _.bindAll(this, "createViews", "render", "renderViews", "toggleEdit");
-      this.fieldViews = [];
-      this.render();
-    },
-    createViews : function () {
-      var fields, fieldViews;
-
-      fields = this.collection;
-      fieldViews = this.fieldViews;
-
-      fields.each( function (field) {
-        var newFieldView;
-        if ( !(_.any(fieldViews, function (fieldView) {
-          return field === fieldView.model;
-        }))) {
-          newFieldView = new FieldView({ model : field })
-          fieldViews.splice(fields.indexOf(field), 0, newFieldView);
-          if (this.editing) newFieldView.trigger("start-edit");
-        }
-      }, this);
-    },
-    render : function () {
-      this.createViews();
-      this.renderViews();
-      return this.$el;
-    },
-    renderViews : function () {
-    }
-  });
-
   Dashforms.FieldSet = FieldSet = Backbone.Model.extend({
     defaults : {
-      fields : emptyFields,
-      legend : ""
+      legend : "New Fieldset"
+    },
+    initialize : function () {
+      if (!this.get('fields')) this.set('fields', new Fields());
     }
   });
 
@@ -147,27 +175,17 @@
     model : FieldSet
   });
 
-  Dashforms.emptyFieldSets = emptyFieldSets = new FieldSets();
-
-  Dashforms.Form = Form = Backbone.Model.extend({
-    defaults : {
-      fields : emptyFields,
-      fieldSets : emptyFieldSets,
-      editing : false,
-      name : "Awesome New Form"
-    }
-  });
-
   Dashforms.FieldSetView = FieldSetView = Backbone.View.extend({
     tagName : "fieldset",
 
     events : {
       "click button.rename-fieldset" : "rename",
+      "click button.remove-fieldset" : "remove",
       "click button.add-fieldFieldset" : "addField"
     },
 
     initialize : function () {
-      _.bindAll(this, "render", "createViews", "renderViews", "startEdit", "endEdit", "rename", "addField");
+      _.bindAll(this, "render", "createViews", "renderViews", "startEdit", "endEdit", "rename", "addField", "remove");
       this.bind("start-edit", this.startEdit);
       this.bind("end-edit", this.endEdit);
       this.model.get("fields").bind("add", this.render);
@@ -188,7 +206,7 @@
         if ( !(_.any(fieldViews, function (fieldView) {
           return field === fieldView.model;
         }))) {
-          newFieldView = new FieldView({ model : field })
+          newFieldView = new FieldView({ model : field });
           fieldViews.splice(fields.indexOf(field), 0, newFieldView);
           if (this.editing) newFieldView.trigger("start-edit");
         }
@@ -200,7 +218,7 @@
       _.each(this.fieldViews, function (fieldView) {
         fieldView.trigger("end-edit");
       });
-      $("legend .pull-right").empty();
+      this.render();
     },
 
     rename : function () {
@@ -214,7 +232,11 @@
       $el.html(template(this.model.toJSON()));
       this.createViews();
       this.renderViews();
-      if (this.editing) { this.startEdit(); }
+      if (this.editing) {
+        $("legend .pull-right", this.$el).html(templates.fieldseteditbuttons);
+        this.delegateEvents(this.events);
+      }
+      else $("legend .pull-right", this.$el).empty();
       return this;
     },
 
@@ -227,10 +249,26 @@
 
     startEdit : function () {
       this.editing = true;
-      $("legend .pull-right", this.$el).html(templates.fieldseteditbuttons);
       _.each(this.fieldViews, function (fieldView) {
         fieldView.trigger("start-edit");
       });
+      this.render();
+    },
+
+    remove : function () {
+      this.$el.remove();
+      this.model.destroy();
+    }
+  });
+
+  Dashforms.Form = Form = Backbone.Model.extend({
+    defaults : {
+      editing : false,
+      name : "Awesome New Form"
+    },
+    initialize : function () {
+      if (!this.get('fields')) this.set('fields', new Fields());
+      if (!this.get('fieldSets')) this.set('fieldSets', new FieldSets());
     }
   });
 
@@ -277,11 +315,15 @@
         if ( !(_.any(fieldViews, function (fieldView) {
           return field === fieldView.model;
         }))) {
-          newFieldView = new FieldView({ model : field })
+          newFieldView = new FieldView({ model : field });
           fieldViews.splice(fields.indexOf(field), 0, newFieldView);
           if (this.editing) newFieldView.trigger("start-edit");
         }
       }, this);
+
+      this.fieldViews = _.filter(fieldViews, function (fieldView){
+        return fields.indexOf(fieldView.model) !== -1;
+      });
 
       fieldSets.each( function (fieldSet) {
         var newFieldSetView;
@@ -293,6 +335,11 @@
           if (this.editing) newFieldSetView.trigger("start-edit");
         }
       }, this);
+
+      this.fieldSetViews = _.filter(fieldSetViews, function (fieldSetView){
+        return fieldSets.indexOf(fieldSetView.model) !== -1;
+      });
+
     },
 
     toggleEdit : function () {
@@ -371,7 +418,6 @@
       ];
       fields.add(testFields, {silent:true});
       fieldSets.add({ legend : "A FieldSet", fields : new Fields(fields.toJSON()) }, {silent:true});
-      //fieldSets.add({ legend : "And Yet Another Copy", fields : fields }, {silent:true});
       this.render();
     }
 
@@ -382,38 +428,31 @@
     className : "modal hide fade in",
 
     events : {
-      "change input,select" : "update",
-      "click button.add-opt" : "addOption",
-      "click button.remove-opt" : "removeOption"
+      "change :not(td)>input,select" : "update"
     },
 
     initialize : function () {
-      _.bindAll(this, "render", "update", "addOption", "removeOption");
-      this.model.bind("change", this.render);
-      this.model.get("options").bind("add", this.render, this);
+      _.bindAll(this, "render", "update");
       this.render();
     },
 
     render : function () {
       var template = _.template(templates.editmodal);
       this.$el.html(template(this.model.toJSON()));
+      if (this.model.get("options")){
+        this.optionsView = this.optionsView || new OptionsView({collection:this.model.get("options")});
+        $("form", this.$el).append(this.optionsView.render().el);
+      }
       this.$el.modal('show');
     },
 
     update : function () {
       var fieldArray = $("form", this.$el).serializeArray(), fields = {};
       _.each(fieldArray, function (field) {
+        if (field.name === "opt-label" || field.name === "opt-value") return;
         fields[field.name] = field.value;
       });
       this.model.set(fields);
-    },
-
-    addOption : function() {
-      this.model.get("options").add();
-      return false;
-    },
-
-    removeOption : function() {
     }
   });
 

@@ -38,29 +38,6 @@
 
     </fieldset>
 
-    <% if ( _.any(['checkbox', 'radio', 'select', 'multiple'], function (currentType) {return type === currentType;})) { %>
-      <fieldset class="options">
-        <legend>Options</legend>
-        <table>
-          <thead>
-            <tr><th>Value</th><th>Label</th></tr>
-          </thead>
-          <tbody>
-            <% _.each(options.toJSON(), function (option) { %>
-            <tr>
-              <td><input type="text" name="optValue" value="<%= option.value %>"></td>
-              <td><input type="text" name="optLabel" value="<%= option.label %>"></td>
-              <td>
-                <button class="btn btn-mini btn-success add-opt"><i class="icon-plus"></i></button>
-                <button class="btn btn-mini btn-danger remove-opt"><i class="icon-minus"></i></button>
-              </td>
-            </tr>
-            <% }); %>
-          <tbody>
-        </table>
-      </fieldset>
-    <% } %>
-
   </form>
 
 </div>
