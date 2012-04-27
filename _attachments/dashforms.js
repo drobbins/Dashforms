@@ -6,11 +6,12 @@
   var ddoc = app.get("doc"),
       templates = ddoc.dashapp.templates;
 
-  $(".content").html(templates.main);
+  //$(".content").html(templates.main);
 
-  var Field, Fields, FieldView, FieldsView,
+  var DashFormApp,
+      Field, Fields, FieldView, FieldsView,
       FieldSet, FieldSets, FieldSetView, FieldSetsView,
-      Form, FormView,
+      Form, Forms, FormListView, FormView, FormsView,
       EditFieldView,
       Option, Options, OptionView, OptionsView, emptyOptions;
 
@@ -96,11 +97,17 @@
       label : "",
       rows : 3,
       options : emptyOptions
+    },
+    initialize : function () {
+      this.set("options", new Options(this.get('options')));
     }
   });
 
   Dashforms.Fields = Fields = Backbone.Collection.extend({
     model : Field
+    //initialize : function () {
+    //  if (this.models.length === 0) this.add(new Field());
+    //}
   });
 
   Dashforms.FieldView = FieldView = Backbone.View.extend({
@@ -168,6 +175,7 @@
     },
     initialize : function () {
       if (!this.get('fields')) this.set('fields', new Fields());
+      else this.set('fields', new Fields(this.get('fields')));
     }
   });
 
@@ -268,28 +276,41 @@
     },
     initialize : function () {
       if (!this.get('fields')) this.set('fields', new Fields());
+      else this.set('fields', new Fields(this.get('fields')));
       if (!this.get('fieldSets')) this.set('fieldSets', new FieldSets());
+      else this.set('fieldSets', new FieldSets(this.get('fieldSets')));
+    },
+    parse : function (response) {
+      response.fields = new Fields(response.fields);
+      response.fieldSets = new FieldSets(response.fieldSets);
+      return response;
     }
   });
 
+  Dashforms.Forms = Forms = Backbone.Collection.extend({
+    url : "/forms",
+    model : Form
+  });
+
   Dashforms.FormView = FormView = Backbone.View.extend({
-    el : $(".current-form"),
+    el : ".current-form",
 
     events : {
       "click button.edit-form" : "toggleEdit",
       "click button.rename-form" : "rename",
       "click button.add-fieldForm" : "addField",
-      "click button.add-fieldSet" : "addFieldSet"
+      "click button.add-fieldSet" : "addFieldSet",
+      "click button.remove-form" : "remove"
     },
 
     initialize : function () {
       _.bindAll(this, "render", "testForm", "createViews", "rename", "renderViews", "renderHead", "toggleEdit",
-        "addField", "addFieldSet");
-      this.model = new Form();
+        "addField", "addFieldSet", "remove");
+      this.model = this.model || new Form();
       this.model.get('fields').bind("add", this.render);
       this.model.get('fieldSets').bind("add", this.render);
       this.editing = false;
-      this.testForm();
+      this.render();
     },
 
     addField : function () {
@@ -339,7 +360,6 @@
       this.fieldSetViews = _.filter(fieldSetViews, function (fieldSetView){
         return fieldSets.indexOf(fieldSetView.model) !== -1;
       });
-
     },
 
     toggleEdit : function () {
@@ -353,6 +373,11 @@
        fieldSetView.trigger(evt);
       });
       this.render();
+    },
+
+    remove : function () {
+      this.model.destroy();
+      this.$el.empty();
     },
 
     rename : function () {
@@ -418,9 +443,11 @@
       ];
       fields.add(testFields, {silent:true});
       fieldSets.add({ legend : "A FieldSet", fields : new Fields(fields.toJSON()) }, {silent:true});
+      var temp = this.model;
+      this.model = "Waffles!!";
+      this.model = new Form(temp.toJSON());
       this.render();
     }
-
   });
 
   Dashforms.EditFieldView = EditFieldView = Backbone.View.extend({
@@ -456,7 +483,56 @@
     }
   });
 
-  Dashforms.fv = new FormView();
+  Dashforms.FormListView = FormListView = Backbone.View.extend({
+    tagName : "li",
+    events : {
+      'click' : 'load'
+    },
+    initialize : function () {
+      _.bindAll(this, 'render', 'load');
+    },
+    render : function () {
+      var name = this.model.get('name');
+      this.$el.html("<a href='#"+name+"'>"+name+"</a>");
+      return this;
+    },
+    load : function () {
+      this.options.fv.trigger('load', this.model);
+    }
+  });
+
+  Dashforms.FormsView = FormsView = Backbone.View.extend({
+    el : $(".content"),
+    events : {
+      'click .new-form' : 'newForm'
+    },
+    initialize : function () {
+      _.bindAll(this, "render", "loadForm", 'newForm');
+      this.bind('load', this.loadForm);
+      this.collection = new Forms();
+      this.collection.fetch({
+        success : this.render
+      });
+      this.collection.bind("add", this.render);
+    },
+    render : function () {
+      var that = this, $el = this.$el;
+      $el.empty();
+      $el.html(templates.main);
+      this.collection.each(function (form) {
+        var flv = new FormListView({model:form, fv:that});
+        $(".form-list", $el).append(flv.render().el);
+      });
+    },
+    loadForm : function (form) {
+      this.currentFormView = new FormView({model : form});
+    },
+    newForm : function () {
+      this.loadForm(this.collection.create({name:"New Form"}));
+    }
+  });
+
+  Dashforms.App = new FormsView();
 
   global.Dashcouch.Apps.Dashforms = Dashforms;
 })();
