@@ -91,10 +91,11 @@
 
   Dashforms.Field = Field = Backbone.Model.extend({
     defaults : {
+      name : "newfield",
       type : "text",
       autofill : false,
       help : "",
-      label : "",
+      label : "New Field",
       rows : 3,
       options : emptyOptions
     },
@@ -104,10 +105,10 @@
   });
 
   Dashforms.Fields = Fields = Backbone.Collection.extend({
-    model : Field
-    //initialize : function () {
-    //  if (this.models.length === 0) this.add(new Field());
-    //}
+    model : Field,
+    initialize : function () {
+      if (this.length === 0) this.add(new Field());
+    }
   });
 
   Dashforms.FieldView = FieldView = Backbone.View.extend({
@@ -118,40 +119,39 @@
     events : {
       "click button.edit-field" : "edit",
       "click button.add-field" : "add",
-      "click button.remove-field" : "remove"
+      "click button.remove-field" : "removeField"
     },
 
     initialize : function () {
       _.bindAll(this, "render", "unrender", "renderEdit", "edit",
-        "remove", "add", "reRender");
-      this.model.bind("change", this.reRender);
-      this.model.get("options").bind("add remove change", this.reRender);
-      this.bind("start-edit", function(){ this.editing = true; this.render(); }, this);
-      this.bind("end-edit", function(){ this.editing = false; this.render(); }, this);
+        "removeField", "add");
+      this.model.bind("change", this.render);
+      this.model.get("options").bind("add remove change", this.render);
+      this.bind("start-edit", function(){
+        this.editing = true; this.render();
+      }, this);
+      this.bind("end-edit", function(){
+        this.editing = false; this.render();
+      }, this);
     },
 
     edit : function () {
       console.log("Editing", this.model.get("name"));
       new EditFieldView({ model : this.model });
+      return false;
     },
 
     render : function () {
       var template = _.template(templates[this.model.get("type")]);
       this.$el.html(template(this.model.toJSON()));
-      if (this.editing) return this.renderEdit();
-      else return this;
-    },
-
-    reRender : function () {
-      this.$el.empty();
-      this.render();
+      this.$el.prepend(templates.editbuttons);
+      if (this.editing) this.renderEdit();
+      this.delegateEvents();
+      return this;
     },
 
     renderEdit : function () {
-      var template = _.template(templates.editbuttons);
-      this.$el.prepend(template({ field : this.model.toJSON()}));
-      this.delegateEvents(this.events);
-      return this;
+      $(".edit-buttons", this.$el).removeClass('hide');
     },
 
     unrender : function () {
@@ -163,7 +163,7 @@
       fields.add({ name : "NewField"}, { at : fields.indexOf(this.model)+1 });
     },
 
-    remove : function () {
+    removeField : function () {
       this.$el.remove();
       this.model.destroy();
     }
@@ -174,8 +174,13 @@
       legend : "New Fieldset"
     },
     initialize : function () {
-      if (!this.get('fields')) this.set('fields', new Fields());
-      else this.set('fields', new Fields(this.get('fields')));
+      var fields = this.get('fields');
+      if (!fields){
+        this.set('fields', new Fields());
+      }
+      else if (fields instanceof Array) {
+        this.set('fields', new Fields(fields));
+      }
     }
   });
 
@@ -188,12 +193,12 @@
 
     events : {
       "click button.rename-fieldset" : "rename",
-      "click button.remove-fieldset" : "remove",
+      "click button.remove-fieldset" : "removeFieldset",
       "click button.add-fieldFieldset" : "addField"
     },
 
     initialize : function () {
-      _.bindAll(this, "render", "createViews", "renderViews", "startEdit", "endEdit", "rename", "addField", "remove");
+      _.bindAll(this, "render", "createViews", "renderViews", "startEdit", "endEdit", "rename", "addField", "removeFieldset");
       this.bind("start-edit", this.startEdit);
       this.bind("end-edit", this.endEdit);
       this.model.get("fields").bind("add", this.render);
@@ -263,7 +268,7 @@
       this.render();
     },
 
-    remove : function () {
+    removeFieldset : function () {
       this.$el.remove();
       this.model.destroy();
     }
@@ -276,13 +281,11 @@
     },
     initialize : function () {
       if (!this.get('fields')) this.set('fields', new Fields());
-      else this.set('fields', new Fields(this.get('fields')));
       if (!this.get('fieldSets')) this.set('fieldSets', new FieldSets());
-      else this.set('fieldSets', new FieldSets(this.get('fieldSets')));
     },
     parse : function (response) {
-      response.fields = new Fields(response.fields);
-      response.fieldSets = new FieldSets(response.fieldSets);
+      if (response.fields) response.fields = new Fields(response.fields);
+      if (response.fieldSets) response.fieldSets = new FieldSets(response.fieldSets);
       return response;
     }
   });
@@ -293,19 +296,20 @@
   });
 
   Dashforms.FormView = FormView = Backbone.View.extend({
-    el : ".current-form",
+    tagName : "div",
+    className : "current-form",
 
     events : {
       "click button.edit-form" : "toggleEdit",
       "click button.rename-form" : "rename",
       "click button.add-fieldForm" : "addField",
       "click button.add-fieldSet" : "addFieldSet",
-      "click button.remove-form" : "remove"
+      "click button.remove-form" : "removeForm"
     },
 
     initialize : function () {
       _.bindAll(this, "render", "testForm", "createViews", "rename", "renderViews", "renderHead", "toggleEdit",
-        "addField", "addFieldSet", "remove");
+        "addField", "addFieldSet", "removeForm");
       this.model = this.model || new Form();
       this.model.get('fields').bind("add", this.render);
       this.model.get('fieldSets').bind("add", this.render);
@@ -372,10 +376,11 @@
       _.each(this.fieldSetViews, function (fieldSetView) {
        fieldSetView.trigger(evt);
       });
+      if (!this.editing) this.model.save();
       this.render();
     },
 
-    remove : function () {
+    removeForm : function () {
       this.model.destroy();
       this.$el.empty();
     },
@@ -411,6 +416,8 @@
       else{
         $(".form-header .pull-right", this.$el).html('<button class="btn edit-form"><i class="icon-pencil"></i></button>');
       }
+      this.delegateEvents();
+      return this;
     },
 
     testForm : function () {
@@ -513,19 +520,25 @@
       this.collection.fetch({
         success : this.render
       });
-      this.collection.bind("add", this.render);
+      this.collection.bind("add remove change", this.render);
     },
     render : function () {
       var that = this, $el = this.$el;
-      $el.empty();
       $el.html(templates.main);
       this.collection.each(function (form) {
         var flv = new FormListView({model:form, fv:that});
         $(".form-list", $el).append(flv.render().el);
       });
+      if (this.currentFormView) {
+        this.$el.append(this.currentFormView.render().el);
+      }
     },
     loadForm : function (form) {
+      if (this.currentFormView) {
+        this.currentFormView.remove();
+      }
       this.currentFormView = new FormView({model : form});
+      this.render();
     },
     newForm : function () {
       this.loadForm(this.collection.create({name:"New Form"}));
